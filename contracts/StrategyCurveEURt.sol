@@ -52,15 +52,15 @@ abstract contract StrategyCurveBase is BaseStrategy {
     ICurveStrategyProxy public proxy =
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
     address public constant voter =
-        address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
+        0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
     ICurveFi public curve; // Curve Pool, need this for buying more pool tokens
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
     // state variables used for swapping
     address public constant sushiswap =
-        address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address public constant uniswapv3 =
-        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+        0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address[] public crvPath;
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
@@ -68,7 +68,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    bool internal keeperHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
+    bool internal forceHarvestTriggerOnce = false; // only set this to true externally when we want to trigger our keepers to harvest for us
     string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
@@ -87,10 +87,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
         maxReportDelay = 504000; // 140 hours in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
         profitFactor = 10000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
-        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
+        healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
 
         // these are our standard approvals. want = Curve LP token
-        want.safeApprove(address(proxy), type(uint256).max);
+        want.approve(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
 
         // set our curve pool and gauge contract
@@ -182,8 +182,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         override
         returns (address[] memory)
     {
-        address[] memory protected = new address[](0);
-        return protected;
+        return new address[](0);
     }
 
     /* ========== KEEP3RS ========== */
@@ -195,7 +194,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (bool)
     {
         // trigger if we want to manually harvest
-        if (keeperHarvestNow) return true;
+        if (forceHarvestTriggerOnce) return true;
 
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
         if (!isActive()) return false;
@@ -223,8 +222,8 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // This allows us to manually harvest with our keeper as needed
-    function setManualHarvest(bool _keeperHarvestNow) external onlyAuthorized {
-        keeperHarvestNow = _keeperHarvestNow;
+    function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce) external onlyAuthorized {
+        forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
 }
 
@@ -251,8 +250,8 @@ contract StrategyCurveEURt is StrategyCurveBase {
         // these will likely change across different wants.
 
         // these are our approvals and path specific to this contract
-        eurt.safeApprove(address(curve), type(uint256).max);
-        weth.safeApprove(uniswapv3, type(uint256).max);
+        eurt.approve(address(curve), type(uint256).max);
+        weth.approve(uniswapv3, type(uint256).max);
 
         crvPath = new address[](2);
         crvPath[0] = address(crv);
@@ -334,7 +333,7 @@ contract StrategyCurveEURt is StrategyCurveBase {
         }
 
         // we're done harvesting, so reset our trigger if we used it
-        if (keeperHarvestNow) keeperHarvestNow = false;
+        if (forceHarvestTriggerOnce) forceHarvestTriggerOnce = false;
     }
 
     // Sells our harvested CRV into the selected output.
